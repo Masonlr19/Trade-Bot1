@@ -4,17 +4,15 @@ import yfinance as yf
 import streamlit as st
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import pandas_ta as ta
+import ta
 from openai import OpenAI
 
 # -------------------- Config --------------------
 st.set_page_config(page_title="Options Trading Chat Assistant", layout="wide")
 st.title("📈 Options Trading Chat Assistant")
 
-# Load OpenAI API key
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Watchlist JSON file path
 WATCHLIST_FILE = "watchlist.json"
 
 def load_watchlist():
@@ -71,12 +69,23 @@ def fetch_price_data(ticker):
     return df
 
 def add_technical_indicators(df):
-    df['RSI'] = ta.rsi(df['Close'], length=14)
-    macd = ta.macd(df['Close'])
-    df['MACD'] = macd['MACD_12_26_9']
-    df['MACD_signal'] = macd['MACDs_12_26_9']
-    df['SMA_20'] = ta.sma(df['Close'], length=20)
-    df['SMA_50'] = ta.sma(df['Close'], length=50)
+    df = df.copy()
+
+    # RSI
+    rsi = ta.momentum.RSIIndicator(close=df['Close'], window=14)
+    df['RSI'] = rsi.rsi()
+
+    # MACD
+    macd = ta.trend.MACD(close=df['Close'])
+    df['MACD'] = macd.macd()
+    df['MACD_signal'] = macd.macd_signal()
+
+    # SMA 20 & SMA 50
+    sma_20 = ta.trend.SMAIndicator(close=df['Close'], window=20)
+    sma_50 = ta.trend.SMAIndicator(close=df['Close'], window=50)
+    df['SMA_20'] = sma_20.sma_indicator()
+    df['SMA_50'] = sma_50.sma_indicator()
+
     return df
 
 def explain_with_gpt(prompt):
@@ -100,14 +109,12 @@ Stock: {ticker}
 - SMA 50: {recent['SMA_50']:.2f}
 - Current Price: {recent['Close']:.2f}
 """
-
     prompt = f"""
 You are a trading assistant. Interpret these technical indicators for {ticker} in plain English.
 What do they say about momentum, overbought/oversold, and trend?
 
 {summary}
 """
-
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
@@ -140,10 +147,8 @@ def plot_chart(df, strikes=None):
             ), row=1, col=1)
 
     fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], name="RSI", line=dict(color='purple')), row=2, col=1)
-
     fig.add_trace(go.Scatter(x=[df.index[0], df.index[-1]], y=[70, 70], mode='lines', name='Overbought (70)',
                              line=dict(dash='dash', color='red')), row=2, col=1)
-
     fig.add_trace(go.Scatter(x=[df.index[0], df.index[-1]], y=[30, 30], mode='lines', name='Oversold (30)',
                              line=dict(dash='dash', color='green')), row=2, col=1)
 
@@ -168,7 +173,6 @@ if user_input:
             explanation = explain_with_gpt(f"Explain this options data in simple terms:\n{data.to_string()}")
             indicators_explained = explain_indicators(price_data, ticker)
             response = f"Here are the first few call options for {ticker}:\n\n{data.to_string()}\n\n🧠 Explanation:\n{explanation}\n\n🧪 Technical Indicator Summary:\n{indicators_explained}"
-
             st.plotly_chart(plot_chart(price_data, option_strikes), use_container_width=True)
 
         if ticker not in st.session_state.watchlist:
