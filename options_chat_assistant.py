@@ -1,10 +1,10 @@
 import yfinance as yf
 import streamlit as st
-import openai
+from openai import OpenAI
 import os
 
-# Set your OpenAI API Key securely
-openai.api_key = os.getenv("OPENAI_API_KEY")  
+# Create the OpenAI client using the updated SDK
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 st.set_page_config(page_title="Options Chat Assistant", layout="wide")
 st.title("📈 Options Trading Chat Assistant")
@@ -30,7 +30,7 @@ def fetch_option_chain(ticker):
 
 def explain_with_gpt(prompt):
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "You're a helpful trading assistant who explains stock and option data in simple terms."},
