@@ -4,3 +4,4 @@ openai
 plotly
 pandas
 pandas-ta
+setuptools<70
