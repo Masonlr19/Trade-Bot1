@@ -27,17 +27,29 @@ def load_data(symbol):
 
 # --- Perform technical analysis ---
 def analyze_data(df):
-    df.ta = ta.add_all_ta_features(
+    # Drop rows with missing values in required columns
+    required_cols = ["Open", "High", "Low", "Close", "Volume"]
+    df = df.dropna(subset=required_cols)
+
+    # Check for zero volume and remove those rows
+    df = df[df["Volume"] > 0]
+
+    # If not enough data, return empty summary
+    if df.empty or len(df) < 10:
+        return {"RSI": "N/A", "MACD": "N/A", "ADX": "N/A"}
+
+    # Add technical indicators
+    df = ta.add_all_ta_features(
         df, open="Open", high="High", low="Low", close="Close", volume="Volume"
     )
+
     last_row = df.iloc[-1]
     summary = {
-        "RSI": last_row.get("momentum_rsi", "N/A"),
-        "MACD": last_row.get("trend_macd", "N/A"),
-        "ADX": last_row.get("trend_adx", "N/A"),
+        "RSI": round(last_row.get("momentum_rsi", 0), 2),
+        "MACD": round(last_row.get("trend_macd", 0), 2),
+        "ADX": round(last_row.get("trend_adx", 0), 2),
     }
     return summary
-
 # --- Generate trade recommendation ---
 def get_trade_recommendation(symbol, ta_summary, news_items):
     news_text = "\n\n".join(
