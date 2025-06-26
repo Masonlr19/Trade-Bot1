@@ -1,5 +1,5 @@
 import streamlit as st
-import yfinance
+import yfinance as yf
 import plotly.graph_objs as go
 from alpha_vantage.timeseries import TimeSeries
 from alpha_vantage.news import News
