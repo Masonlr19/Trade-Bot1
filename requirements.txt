@@ -3,4 +3,4 @@ yfinance
 plotly
 ta
 openai
-alphavantage-api-wrapper  # or just use `requests` if you prefer
+alphavantage-api-wrapper
