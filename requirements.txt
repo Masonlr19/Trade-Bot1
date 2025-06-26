@@ -4,3 +4,5 @@ plotly
 ta
 openai
 alpha_vantage
+alpha_vantage.news
+alpha_vantage.timeseries
