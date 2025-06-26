@@ -7,6 +7,7 @@ from ta import add_all_ta_features
 import pandas as pd
 import openai
 import os
+install pip
 
 # Set your API keys
 ALPHA_VANTAGE_KEY = os.getenv("ALPHA_VANTAGE_KEY") or "YOUR_ALPHA_VANTAGE_KEY"
