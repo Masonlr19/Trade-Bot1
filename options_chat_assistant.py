@@ -1,36 +1,39 @@
 import streamlit as st
 import yfinance as yf
-import requests
-import openai
+import plotly.graph_objs as go
+from alpha_vantage.timeseries import TimeSeries
+from alpha_vantage.news import News
+from ta import add_all_ta_features
 import pandas as pd
-import ta
-import datetime
+import openai
+import os
 
-# --- CONFIG ---
-ALPHA_VANTAGE_API_KEY = "YOUR_ALPHA_VANTAGE_API_KEY"
-openai.api_key = "YOUR_OPENAI_API_KEY"
+# Set your API keys
+ALPHA_VANTAGE_KEY = os.getenv("ALPHA_VANTAGE_KEY") or "YOUR_ALPHA_VANTAGE_KEY"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or "YOUR_OPENAI_KEY"
+openai.api_key = OPENAI_API_KEY
 
-# --- Alpha Vantage News Fetcher ---
-def get_alpha_vantage_news(symbol):
-    url = f"https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers={symbol}&apikey={ALPHA_VANTAGE_API_KEY}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json().get("feed", [])
-    return []
+# Alpha Vantage clients
+ts = TimeSeries(key=ALPHA_VANTAGE_KEY, output_format='pandas')
+news_client = News(key=ALPHA_VANTAGE_KEY)
 
-# --- Load stock data ---
-def load_data(symbol):
-    end = datetime.date.today()
-    start = end - datetime.timedelta(days=60)
-    df = yf.download(symbol, start=start, end=end)
-    return df
+# Streamlit UI
+st.title("📊 Options Trading Assistant")
+ticker = st.text_input("Enter a stock ticker (e.g., AAPL)", value="AAPL").upper()
 
-# --- Perform technical analysis ---
+def fetch_stock_data(symbol):
+    try:
+        df = yf.download(symbol, period="3mo", interval="1d")
+        return df
+    except Exception as e:
+        st.error(f"Error fetching stock data: {e}")
+        return None
+
 def analyze_data(df):
     required_cols = ["Open", "High", "Low", "Close", "Volume"]
-
-    # Check if required columns exist
+    existing_cols = [col for col in required_cols if col in df.columns]
     missing_cols = [col for col in required_cols if col not in df.columns]
+
     if missing_cols:
         return {
             "RSI": f"Missing columns: {', '.join(missing_cols)}",
@@ -38,71 +41,84 @@ def analyze_data(df):
             "ADX": "N/A"
         }
 
-    # Drop rows with missing values in required columns
-    df = df.dropna(subset=required_cols)
-
-    # Remove rows with zero volume
+    df = df.dropna(subset=existing_cols)
     df = df[df["Volume"] > 0]
 
     if df.empty or len(df) < 10:
-        return {"RSI": "Not enough data", "MACD": "N/A", "ADX": "N/A"}
+        return {
+            "RSI": "Not enough data",
+            "MACD": "N/A",
+            "ADX": "N/A"
+        }
 
-    # Add technical indicators
-    df = ta.add_all_ta_features(
-        df, open="Open", high="High", low="Low", close="Close", volume="Volume"
+    df = add_all_ta_features(
+        df,
+        open="Open",
+        high="High",
+        low="Low",
+        close="Close",
+        volume="Volume"
     )
 
     last_row = df.iloc[-1]
-    summary = {
+    return {
         "RSI": round(last_row.get("momentum_rsi", 0), 2),
         "MACD": round(last_row.get("trend_macd", 0), 2),
         "ADX": round(last_row.get("trend_adx", 0), 2),
     }
-    return summary# --- Generate trade recommendation ---
-def get_trade_recommendation(symbol, ta_summary, news_items):
-    news_text = "\n\n".join(
-        [f"- {item['title']} ({item['summary']})" for item in news_items[:3]]
-    )
+
+def fetch_news(symbol):
+    try:
+        news_data = news_client.get_news(tickers=[symbol], topics=['financial_markets'], time_from='20240601T0000')
+        return news_data.get("feed", [])[:5]
+    except Exception as e:
+        st.warning(f"News fetch failed: {e}")
+        return []
+
+def generate_trade_recommendation(symbol, ta_summary, news_headlines):
     prompt = f"""
-You are a trading assistant. Based on the following data, provide a trading recommendation for {symbol}.
+You are a financial trading assistant. Given the following:
+- Stock symbol: {symbol}
+- Technical Indicators: RSI={ta_summary['RSI']}, MACD={ta_summary['MACD']}, ADX={ta_summary['ADX']}
+- Recent News Headlines: {news_headlines}
 
-Technical Summary:
-RSI: {ta_summary['RSI']}
-MACD: {ta_summary['MACD']}
-ADX: {ta_summary['ADX']}
-
-Recent News:
-{news_text}
-
-What trade would you suggest (buy, hold, sell) and why?
+Provide a simple recommendation on whether to BUY, SELL, or HOLD the stock and why.
 """
+
     response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
+        temperature=0.7
     )
-    return response.choices[0].message["content"]
+    return response['choices'][0]['message']['content'].strip()
 
-# --- UI ---
-st.title("📈 AI Options Trading Assistant")
+# Run analysis
+if ticker:
+    df = fetch_stock_data(ticker)
 
-symbol = st.text_input("Enter a stock symbol (e.g. AAPL, MSFT)", "AAPL").upper()
+    if df is not None:
+        st.subheader(f"{ticker} Price Chart")
+        fig = go.Figure()
+        fig.add_trace(go.Candlestick(
+            x=df.index,
+            open=df["Open"],
+            high=df["High"],
+            low=df["Low"],
+            close=df["Close"],
+            name="Candlestick"
+        ))
+        st.plotly_chart(fig)
 
-if st.button("Analyze and Recommend"):
-    with st.spinner("Loading data and analyzing..."):
-        df = load_data(symbol)
-        if df.empty:
-            st.error("Could not fetch data. Check the symbol.")
-        else:
-            ta_summary = analyze_data(df)
-            news_items = get_alpha_vantage_news(symbol)
-            recommendation = get_trade_recommendation(symbol, ta_summary, news_items)
+        st.subheader("📈 Technical Analysis")
+        ta_summary = analyze_data(df)
+        st.write(ta_summary)
 
-            st.subheader("📊 Technical Indicators")
-            st.write(ta_summary)
+        st.subheader("📰 Latest News")
+        news = fetch_news(ticker)
+        headlines = [item.get("title", "No title") for item in news]
+        for title in headlines:
+            st.markdown(f"- {title}")
 
-            st.subheader("📰 Recent News")
-            for item in news_items[:3]:
-                st.markdown(f"**{item['title']}**  \n{item['summary']}")
-
-            st.subheader("💡 AI Trade Suggestion")
-            st.success(recommendation)
+        st.subheader("🤖 Trade Recommendation")
+        recommendation = generate_trade_recommendation(ticker, ta_summary, headlines)
+        st.write(recommendation)
