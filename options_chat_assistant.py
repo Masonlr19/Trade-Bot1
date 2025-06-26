@@ -27,16 +27,25 @@ def load_data(symbol):
 
 # --- Perform technical analysis ---
 def analyze_data(df):
-    # Drop rows with missing values in required columns
     required_cols = ["Open", "High", "Low", "Close", "Volume"]
+
+    # Check if required columns exist
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    if missing_cols:
+        return {
+            "RSI": f"Missing columns: {', '.join(missing_cols)}",
+            "MACD": "N/A",
+            "ADX": "N/A"
+        }
+
+    # Drop rows with missing values in required columns
     df = df.dropna(subset=required_cols)
 
-    # Check for zero volume and remove those rows
+    # Remove rows with zero volume
     df = df[df["Volume"] > 0]
 
-    # If not enough data, return empty summary
     if df.empty or len(df) < 10:
-        return {"RSI": "N/A", "MACD": "N/A", "ADX": "N/A"}
+        return {"RSI": "Not enough data", "MACD": "N/A", "ADX": "N/A"}
 
     # Add technical indicators
     df = ta.add_all_ta_features(
@@ -49,8 +58,7 @@ def analyze_data(df):
         "MACD": round(last_row.get("trend_macd", 0), 2),
         "ADX": round(last_row.get("trend_adx", 0), 2),
     }
-    return summary
-# --- Generate trade recommendation ---
+    return summary# --- Generate trade recommendation ---
 def get_trade_recommendation(symbol, ta_summary, news_items):
     news_text = "\n\n".join(
         [f"- {item['title']} ({item['summary']})" for item in news_items[:3]]
