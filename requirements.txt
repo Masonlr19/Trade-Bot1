@@ -1,11 +1,13 @@
 streamlit
 yfinance
-pandas
 ta
+openai
+alpha_vantage
+plotly
 newsapi-python
 textblob
-nltk
-matplotlib
 scikit-learn
+matplotlib
+
 
 
