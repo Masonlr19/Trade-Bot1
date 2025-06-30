@@ -45,15 +45,15 @@ ALPHAVANTAGE_API_KEY = "your_alpha_vantage_api_key_here"
 def fetch_stock_data(symbol, outputsize="compact"):
     url = "https://www.alphavantage.co/query"
     params = {
-        "function": "TIME_SERIES_DAILY_ADJUSTED",
+        "function": "TIME_SERIES_DAILY_ADJUSTED",  # free endpoint
         "symbol": symbol,
-        "outputsize": outputsize,
+        "outputsize": outputsize,  # "compact" = last 100 days, "full" = up to 20 years
         "apikey": ALPHAVANTAGE_API_KEY
     }
     response = requests.get(url, params=params)
     data = response.json()
     
-    st.write("Raw API response:", data)  # <-- debug line, remove later
+    st.write("Raw API response:", data)  # keep for debugging
     
     if "Error Message" in data:
         raise ValueError(f"Alpha Vantage API error: {data['Error Message']}")
@@ -82,30 +82,6 @@ def fetch_stock_data(symbol, outputsize="compact"):
     df = df.dropna(subset=required_cols)
     return df
 
-
-    # Rename columns to standard names
-    df = df.rename(columns={
-        "1. open": "Open",
-        "2. high": "High",
-        "3. low": "Low",
-        "4. close": "Close",
-        "5. adjusted close": "Adj Close",
-        "6. volume": "Volume",
-        "7. dividend amount": "Dividend",
-        "8. split coefficient": "Split Coef"
-    })
-
-    # Convert columns to numeric and index to datetime
-    for col in df.columns:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
-    df.index = pd.to_datetime(df.index)
-    df = df.sort_index()
-
-    # Drop rows with missing required columns
-    required_cols = {"Open", "High", "Low", "Close", "Volume"}
-    df = df.dropna(subset=required_cols)
-
-    return df
 
 # === 1b. Fetch stock data - Weekly from Alpha Vantage (for multi-timeframe analysis)
 def fetch_stock_data_weekly(symbol):
