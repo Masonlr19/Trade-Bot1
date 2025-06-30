@@ -4,7 +4,18 @@ import pandas as pd
 from ta import add_all_ta_features
 from ta.utils import dropna
 from newsapi import NewsApiClient
-from textblob import TextBlob
+import subprocess
+import sys
+
+# Ensure textblob is installed and corpora are downloaded
+try:
+    from textblob import TextBlob
+except ModuleNotFoundError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "textblob"])
+    from textblob import TextBlob
+    import nltk
+    nltk.download('brown')
+    nltk.download('punkt')
 
 # Initialize NewsAPI client (replace with your own key)
 newsapi = NewsApiClient(api_key='your_newsapi_key_here')
