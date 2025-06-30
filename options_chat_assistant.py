@@ -9,22 +9,23 @@ from newsapi import NewsApiClient
 newsapi = NewsApiClient(api_key='your_newsapi_key_here')
 
 # Fetch stock data
-def fetch_stock_data(symbol, period="6mo", interval="1d"):    
+def fetch_stock_data(symbol, period="6mo", interval="1d"):
     df = yf.download(symbol, period=period, interval=interval)
-    
-    if df.empty:
-        st.error(f"No data found for symbol: {symbol}")
+
+    if df.empty or df.shape[0] == 0:
+        st.error(f"⚠️ No data returned for symbol '{symbol}'. Please check the ticker and try again.")
         st.stop()
 
     required_cols = {"Open", "High", "Low", "Close", "Volume"}
     missing = required_cols - set(df.columns)
 
     if missing:
-        st.error(f"Missing required columns: {missing}")
+        st.error(f"⚠️ Missing required columns in data for '{symbol}': {missing}")
         st.stop()
 
     df = df.dropna(subset=required_cols)
     return df
+
 
 # Analyze data with TA indicators
 def analyze_data(df):
