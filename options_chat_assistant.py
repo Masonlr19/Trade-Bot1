@@ -7,8 +7,12 @@ from newsapi import NewsApiClient
 import subprocess
 import sys
 import datetime
+import yfinance as yf
+import matplotlib.pyplot as plt
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 
-# 1. Ensure textblob and nltk data are installed
 try:
     from textblob import TextBlob
 except ModuleNotFoundError:
@@ -18,72 +22,35 @@ except ModuleNotFoundError:
     nltk.download('brown')
     nltk.download('punkt')
 
-# Additional libraries for ML & visualization
-try:
-    import matplotlib.pyplot as plt
-except ModuleNotFoundError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "matplotlib"])
-    import matplotlib.pyplot as plt
-
-try:
-    from sklearn.ensemble import RandomForestClassifier
-    from sklearn.model_selection import train_test_split
-    from sklearn.metrics import accuracy_score
-except ModuleNotFoundError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "scikit-learn"])
-    from sklearn.ensemble import RandomForestClassifier
-    from sklearn.model_selection import train_test_split
-    from sklearn.metrics import accuracy_score
-
-# Initialize NewsAPI client (replace with your own key)
+# Initialize API clients
 newsapi = NewsApiClient(api_key='your_newsapi_key_here')
-
-# Your Alpha Vantage API key here (replace with your key)
 ALPHAVANTAGE_API_KEY = "your_alpha_vantage_api_key_here"
 
-# === 1. Fetch stock data - Daily from Alpha Vantage
 def fetch_stock_data(symbol, outputsize="compact"):
     url = "https://www.alphavantage.co/query"
     params = {
-        "function": "TIME_SERIES_DAILY_ADJUSTED",  # free endpoint
+        "function": "TIME_SERIES_DAILY_ADJUSTED",
         "symbol": symbol,
-        "outputsize": outputsize,  # "compact" = last 100 days, "full" = up to 20 years
+        "outputsize": outputsize,
         "apikey": ALPHAVANTAGE_API_KEY
     }
     response = requests.get(url, params=params)
     data = response.json()
-    
-    st.write("Raw API response:", data)  # keep for debugging
-    
-    if "Error Message" in data:
-        raise ValueError(f"Alpha Vantage API error: {data['Error Message']}")
-    if "Note" in data:
-        raise ValueError(f"Alpha Vantage API rate limit exceeded: {data['Note']}")
     if "Time Series (Daily)" not in data:
         raise ValueError(f"Unexpected response keys: {list(data.keys())}")
-    
     ts = data["Time Series (Daily)"]
     df = pd.DataFrame.from_dict(ts, orient="index")
     df = df.rename(columns={
-        "1. open": "Open",
-        "2. high": "High",
-        "3. low": "Low",
-        "4. close": "Close",
-        "5. adjusted close": "Adj Close",
-        "6. volume": "Volume",
-        "7. dividend amount": "Dividend",
-        "8. split coefficient": "Split Coef"
+        "1. open": "Open", "2. high": "High", "3. low": "Low", "4. close": "Close",
+        "5. adjusted close": "Adj Close", "6. volume": "Volume"
     })
     for col in df.columns:
         df[col] = pd.to_numeric(df[col], errors='coerce')
     df.index = pd.to_datetime(df.index)
     df = df.sort_index()
-    required_cols = {"Open", "High", "Low", "Close", "Volume"}
-    df = df.dropna(subset=required_cols)
+    df = df.dropna(subset=["Open", "High", "Low", "Close", "Volume"])
     return df
 
-
-# === 1b. Fetch stock data - Weekly from Alpha Vantage (for multi-timeframe analysis)
 def fetch_stock_data_weekly(symbol):
     url = "https://www.alphavantage.co/query"
     params = {
@@ -93,60 +60,38 @@ def fetch_stock_data_weekly(symbol):
     }
     response = requests.get(url, params=params)
     data = response.json()
-
-    if "Error Message" in data:
-        raise ValueError(f"Alpha Vantage API error: {data['Error Message']}")
     if "Weekly Adjusted Time Series" not in data:
         raise ValueError("Unexpected response from Alpha Vantage")
-
     ts = data["Weekly Adjusted Time Series"]
     df = pd.DataFrame.from_dict(ts, orient="index")
-
     df = df.rename(columns={
-        "1. open": "Open",
-        "2. high": "High",
-        "3. low": "Low",
-        "4. close": "Close",
-        "5. adjusted close": "Adj Close",
-        "6. volume": "Volume",
-        "7. dividend amount": "Dividend"
+        "1. open": "Open", "2. high": "High", "3. low": "Low", "4. close": "Close",
+        "5. adjusted close": "Adj Close", "6. volume": "Volume"
     })
-
     for col in df.columns:
         df[col] = pd.to_numeric(df[col], errors='coerce')
     df.index = pd.to_datetime(df.index)
     df = df.sort_index()
-
-    required_cols = {"Open", "High", "Low", "Close", "Volume"}
-    df = df.dropna(subset=required_cols)
-
+    df = df.dropna(subset=["Open", "High", "Low", "Close", "Volume"])
     return df
 
-# === 2. Fetch options data (simulate or replace with your API)
 def fetch_options_data(symbol):
-    # Placeholder data
     return {
         "implied_volatility": 0.25,
         "put_call_ratio": 0.7,
         "open_interest_change": 0.05
     }
 
-# === 3. Fetch fundamental data using yfinance (no direct Alpha Vantage fundamental here)
-import yfinance as yf
 def fetch_fundamentals(symbol):
     ticker = yf.Ticker(symbol)
     info = ticker.info
-    fundamentals = {
+    return {
         "peRatio": info.get("trailingPE", None),
         "earningsDate": info.get("earningsDate", [None])[0] if isinstance(info.get("earningsDate"), list) else None,
         "revenueGrowth": info.get("revenueGrowth", None),
         "marketCap": info.get("marketCap", None),
     }
-    return fundamentals
 
-# The rest of your original code stays the same...
-
-# === 4. Analyze news sentiment using TextBlob
 def fetch_news(symbol):
     try:
         query = f"{symbol} stock"
@@ -165,37 +110,21 @@ def analyze_news_sentiment(articles):
     avg_polarity = polarity / len(articles) if articles else 0
     return avg_polarity
 
-# === 5. Technical Analysis + Multiple Timeframes + Risk Metrics (ATR)
 def analyze_data(df):
-    try:
-        df = dropna(df)
-        df = add_all_ta_features(
-            df,
-            open="Open", high="High", low="Low", close="Close", volume="Volume",
-            fillna=True
-        )
-        # Add ATR for risk management (approx)
-        high = df["High"]
-        low = df["Low"]
-        close = df["Close"]
-        df["ATR"] = high.combine(low, max) - low.combine(close, min)
-        return df
-    except Exception as e:
-        st.error(f"TA-lib error: {e}")
-        st.stop()
+    df = dropna(df)
+    df = add_all_ta_features(df, open="Open", high="High", low="Low", close="Close", volume="Volume", fillna=True)
+    df["ATR"] = df["High"].combine(df["Low"], max) - df["Low"].combine(df["Close"], min)
+    return df
 
-# === 6. Backtesting function for your strategy
 def backtest_strategy(df):
     df = df.copy()
     df['Position'] = 0
     df.loc[df['momentum_rsi'] < 30, 'Position'] = 1
     df.loc[df['momentum_rsi'] > 70, 'Position'] = -1
-
     df['Market_Returns'] = df['Close'].pct_change()
     df['Strategy_Returns'] = df['Position'].shift(1) * df['Market_Returns']
     df['Cumulative_Strategy_Returns'] = (1 + df['Strategy_Returns']).cumprod()
     df['Cumulative_Market_Returns'] = (1 + df['Market_Returns']).cumprod()
-
     return df
 
 def plot_backtest(df):
@@ -205,19 +134,14 @@ def plot_backtest(df):
     plt.legend()
     st.pyplot(plt)
 
-# === 7. Risk management suggestion
 def risk_management(df):
     latest = df.iloc[-1]
-    atr = latest.get("ATR", None)
-    close = latest.get("Close", None)
+    atr = latest.get("ATR")
+    close = latest.get("Close")
     if atr and close:
-        stop_loss = close - 1.5 * atr
-        take_profit = close + 3 * atr
-        return stop_loss, take_profit
-    else:
-        return None, None
+        return close - 1.5 * atr, close + 3 * atr
+    return None, None
 
-# === 8. User customization - RSI and Sentiment thresholds
 def user_settings():
     st.sidebar.header("Customize Settings")
     rsi_buy = st.sidebar.slider("RSI Buy Threshold", 10, 50, 30)
@@ -226,17 +150,11 @@ def user_settings():
     sentiment_sell = st.sidebar.slider("Sentiment Sell Threshold", -1.0, 0.0, -0.3)
     return rsi_buy, rsi_sell, sentiment_buy, sentiment_sell
 
-# === 9. Alerts - Email placeholder (requires SMTP setup, here just a stub
-def send_alert(symbol, signal):
-    st.info(f"Alert: {symbol} signal is {signal} (Add email/SMS integration here)")
-
-# === 10. Machine Learning - Simple RandomForest classifier for buy/sell/hold
 def prepare_ml_data(df):
     df = df.copy()
     df['Target'] = 0
-    df.loc[df['Close'].shift(-1) > df['Close'], 'Target'] = 1  # 1 = price up next day
-    df.loc[df['Close'].shift(-1) < df['Close'], 'Target'] = -1  # -1 = price down next day
-
+    df.loc[df['Close'].shift(-1) > df['Close'], 'Target'] = 1
+    df.loc[df['Close'].shift(-1) < df['Close'], 'Target'] = -1
     features = ['momentum_rsi', 'trend_macd', 'volume_adi', 'volatility_bbm', 'volatility_bbh', 'volatility_bbl']
     df = df.dropna(subset=features + ['Target'])
     X = df[features]
@@ -249,41 +167,31 @@ def train_ml_model(X_train, y_train):
     return model
 
 def predict_ml_signal(model, X_test):
-    preds = model.predict(X_test)
-    return preds
+    return model.predict(X_test)
 
-# Generate trade recommendation with user thresholds & ML signal
 def generate_trade_signal(df, sentiment_score, rsi_buy, rsi_sell, sentiment_buy, sentiment_sell, ml_signal=None):
     latest = df.iloc[-1]
     rsi = latest.get("momentum_rsi")
     signal = "Hold"
-
     if rsi is not None:
         if rsi < rsi_buy:
             signal = "Buy"
         elif rsi > rsi_sell:
             signal = "Sell"
-
     if sentiment_score > sentiment_buy and signal == "Hold":
         signal = "Buy"
     elif sentiment_score < sentiment_sell and signal == "Hold":
         signal = "Sell"
-
-    # ML overrides if available
     if ml_signal is not None:
         if ml_signal == 1:
             signal = "Buy"
         elif ml_signal == -1:
             signal = "Sell"
-
     return signal
 
-# Streamlit UI
-st.title("📊 Enhanced Options Chat Assistant with Advanced Features")
+st.title("📊 Enhanced Options Chat Assistant with Alpha Vantage (Free Endpoints)")
 
-# User Settings
 rsi_buy, rsi_sell, sentiment_buy, sentiment_sell = user_settings()
-
 symbol = st.text_input("Enter a stock symbol (e.g., AAPL):", value="AAPL")
 
 if symbol:
@@ -300,7 +208,6 @@ if symbol:
             st.error(f"Error fetching or analyzing data: {e}")
             st.stop()
 
-    # Show fundamentals and options data
     st.subheader("Fundamentals")
     st.write(fundamentals)
     st.subheader("Options Market Data (simulated)")
@@ -309,7 +216,6 @@ if symbol:
     st.subheader("Technical Analysis Summary (Daily)")
     st.write(df.tail(1).T)
 
-    # Multi timeframe RSI (weekly)
     df_weekly = analyze_data(df_weekly)
     st.write("Weekly RSI:", df_weekly['momentum_rsi'].iloc[-1])
 
@@ -320,19 +226,16 @@ if symbol:
 
     st.write(f"🧠 News Sentiment Score: `{sentiment_score:.2f}`")
 
-    # Backtesting strategy
     backtested_df = backtest_strategy(df)
     st.subheader("Backtesting Performance")
     plot_backtest(backtested_df)
 
-    # Risk management levels
     stop_loss, take_profit = risk_management(df)
     if stop_loss and take_profit:
         st.subheader("Risk Management Suggestions")
         st.write(f"Stop Loss: {stop_loss:.2f}")
         st.write(f"Take Profit: {take_profit:.2f}")
 
-    # ML model train and predict
     X_train, X_test, y_train, y_test = prepare_ml_data(df)
     model = train_ml_model(X_train, y_train)
     ml_preds = predict_ml_signal(model, X_test)
@@ -340,5 +243,5 @@ if symbol:
     ml_signal = ml_preds[-1] if len(ml_preds) > 0 else None
     st.write(f"ML Model Accuracy on Test Set: {accuracy:.2f}")
 
-    # Generate trade recommendation with all signals
-    signal = generate_trade_signal(df, sentiment_score, r)
+    signal = generate_trade_signal(df, sentiment_score, rsi_buy, rsi_sell, sentiment_buy, sentiment_sell, ml_signal)
+    st.success(f"📈 Trade Signal: **{signal}**")
