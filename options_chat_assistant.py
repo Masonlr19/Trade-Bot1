@@ -12,6 +12,10 @@ from textblob import TextBlob
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+import nltk
+nltk.download('punkt')
+nltk.download('wordnet')
+nltk.download('averaged_perceptron_tagger')
 
 # Initialize NewsAPI client
 newsapi = NewsApiClient(api_key='your_newsapi_key_here')
