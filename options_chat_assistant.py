@@ -9,12 +9,19 @@ from newsapi import NewsApiClient
 newsapi = NewsApiClient(api_key='your_newsapi_key_here')
 
 # Fetch stock data
-def fetch_stock_data(symbol, period="6mo", interval="1d"):
+def fetch_stock_data(symbol, period="6mo", interval="1d"):    
     df = yf.download(symbol, period=period, interval=interval)
-    required_cols = {"Open", "High", "Low", "Close", "Volume"}
     
-    if not all(col in df.columns for col in required_cols):
-        raise ValueError(f"Missing required columns: {required_cols - set(df.columns)}")
+    if df.empty:
+        st.error(f"No data found for symbol: {symbol}")
+        st.stop()
+
+    required_cols = {"Open", "High", "Low", "Close", "Volume"}
+    missing = required_cols - set(df.columns)
+
+    if missing:
+        st.error(f"Missing required columns: {missing}")
+        st.stop()
 
     df = df.dropna(subset=required_cols)
     return df
