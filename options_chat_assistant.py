@@ -48,7 +48,7 @@ def fetch_stock_data(symbol, outputsize="compact"):
         "function": "TIME_SERIES_DAILY_ADJUSTED",
         "symbol": symbol,
         "outputsize": outputsize,  # "compact" or "full"
-        "apikey": ALPHAVANTAGE_API_KEY
+        "apikey": 3TQKXKTKBODO0AE0
     }
     response = requests.get(url, params=params)
     data = response.json()
