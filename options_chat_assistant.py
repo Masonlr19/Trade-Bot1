@@ -16,6 +16,8 @@ import nltk
 nltk.download('punkt')
 nltk.download('wordnet')
 nltk.download('averaged_perceptron_tagger')
+import yfinance
+st.write("yfinance version:", yfinance.__version__)
 
 # Initialize NewsAPI client
 newsapi = NewsApiClient(api_key='your_newsapi_key_here')
