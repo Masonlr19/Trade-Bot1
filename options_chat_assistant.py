@@ -10,6 +10,7 @@ from transformers import pipeline
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
+import random
 
 # ============ SETUP ============
 st.set_page_config(page_title="AI Financial Advisor", layout="wide")
@@ -28,16 +29,19 @@ def analyze_news_sentiment(news_titles):
     return results
 
 # ============ MARKET + OPTIONS DATA ============
-def get_stock_data(ticker, period="6mo", interval="1d", retries=3, delay=2):
+def get_stock_data(ticker, period="6mo", interval="1d", retries=5, delay=2):
     for attempt in range(retries):
         try:
             stock = yf.Ticker(ticker)
             return stock.history(period=period, interval=interval)
         except Exception as e:
-            st.warning(f"Attempt {attempt+1} to fetch stock data failed: {e}")
-            time.sleep(delay)
-    st.error("Failed to retrieve stock data after multiple attempts.")
-    return pd.DataFrame()
+            wait = delay * (2 ** attempt) + random.uniform(0, 1)
+            st.warning(f"Attempt {attempt+1} failed: {e}. Retrying in {wait:.2f}s...")
+            time.sleep(wait)
+    st.error("Too many requests. Falling back to demo data.")
+    demo_dates = pd.date_range(end=datetime.datetime.today(), periods=120)
+    demo_prices = np.cumsum(np.random.normal(0, 1, len(demo_dates))) + 100
+    return pd.DataFrame({"Close": demo_prices}, index=demo_dates)
 
 def get_news_titles(ticker):
     # Placeholder for real news API
@@ -47,7 +51,7 @@ def get_news_titles(ticker):
         f"{ticker} shows strong growth potential in AI sector"
     ]
 
-def get_options_data(ticker, retries=3, delay=2):
+def get_options_data(ticker, retries=5, delay=2):
     for attempt in range(retries):
         try:
             stock = yf.Ticker(ticker)
@@ -55,9 +59,10 @@ def get_options_data(ticker, retries=3, delay=2):
             options_chain = stock.option_chain(expiry)
             return options_chain.calls[['strike', 'lastPrice', 'volume', 'impliedVolatility']].head()
         except Exception as e:
-            st.warning(f"Attempt {attempt+1} to fetch options data failed: {e}")
-            time.sleep(delay)
-    st.error("Failed to retrieve options data after multiple attempts.")
+            wait = delay * (2 ** attempt) + random.uniform(0, 1)
+            st.warning(f"Attempt {attempt+1} failed: {e}. Retrying in {wait:.2f}s...")
+            time.sleep(wait)
+    st.error("Too many requests. Options data unavailable.")
     return pd.DataFrame()
 
 # ============ BACKTESTING ============
