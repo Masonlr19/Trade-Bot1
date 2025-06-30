@@ -1,84 +1,62 @@
-import os
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import openai
 from ta import add_all_ta_features
 from ta.utils import dropna
-import requests
+from newsapi import NewsApiClient
 
-# 📌 API Key (set this in Streamlit as a secret or env var)
-NEWS_API_KEY = os.getenv("NEWS_API_KEY")
+# Initialize NewsAPI client (replace with your own key)
+newsapi = NewsApiClient(api_key='your_newsapi_key_here')
 
-# 🔍 Fetch stock data
+# Fetch stock data
 def fetch_stock_data(symbol, period="6mo", interval="1d"):
     df = yf.download(symbol, period=period, interval=interval)
-    df = df.dropna()
+    required_cols = {"Open", "High", "Low", "Close", "Volume"}
+    
+    if not all(col in df.columns for col in required_cols):
+        raise ValueError(f"Missing required columns: {required_cols - set(df.columns)}")
+
+    df = df.dropna(subset=required_cols)
     return df
 
-# 📈 Analyze with technical indicators
+# Analyze data with TA indicators
 def analyze_data(df):
-    df = dropna(df)
-    df = add_all_ta_features(df, open="Open", high="High", low="Low", close="Close", volume="Volume")
-    return df
-
-# 📰 Fetch news from NewsAPI
-def fetch_news(symbol):
-    if not NEWS_API_KEY:
-        return ["NEWS_API_KEY is not set."]
-    url = (
-        f"https://newsapi.org/v2/everything?"
-        f"q={symbol}&"
-        f"sortBy=publishedAt&"
-        f"language=en&"
-        f"apiKey={NEWS_API_KEY}"
-    )
     try:
-        response = requests.get(url)
-        response.raise_for_status()
-        articles = response.json().get("articles", [])[:5]
-        return [f"{a['title']} - {a['source']['name']}" for a in articles]
+        df = dropna(df)
+        df = add_all_ta_features(
+            df,
+            open="Open", high="High", low="Low", close="Close", volume="Volume",
+            fillna=True
+        )
+        return df
     except Exception as e:
-        return [f"Error fetching news: {e}"]
+        st.error(f"TA-lib error: {e}")
+        st.stop()
 
-# 🤖 ChatGPT Prompt Helper
-def summarize_data(df, news):
-    openai.api_key = os.getenv("OPENAI_API_KEY")
-    description = df.tail(1).to_string()
-    news_str = "\n".join(news)
+# Fetch latest news for a symbol
+def fetch_news(symbol):
+    try:
+        query = f"{symbol} stock"
+        articles = newsapi.get_everything(q=query, language="en", sort_by="publishedAt", page_size=5)
+        return articles['articles']
+    except Exception as e:
+        st.error(f"NewsAPI error: {e}")
+        return []
 
-    prompt = (
-        f"Here is the latest stock technical data:\n{description}\n\n"
-        f"Recent news headlines:\n{news_str}\n\n"
-        "Give a concise summary with any bullish or bearish insights."
-    )
-
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7
-    )
-
-    return response['choices'][0]['message']['content']
-
-# 🌐 Streamlit UI
+# Streamlit UI
 st.title("📊 Options Chat Assistant")
-
-symbol = st.text_input("Enter stock symbol (e.g., AAPL)", "AAPL")
+symbol = st.text_input("Enter a stock symbol (e.g., AAPL):", value="AAPL")
 
 if symbol:
     with st.spinner("Fetching data..."):
         df = fetch_stock_data(symbol)
         df = analyze_data(df)
-        news = fetch_news(symbol)
-        summary = summarize_data(df, news)
 
-        st.subheader("📈 Technical Summary")
-        st.write(df.tail(1))
+    st.subheader("Technical Analysis Summary")
+    st.write(df.tail(1).T)
 
-        st.subheader("📰 Recent News")
-        for article in news:
-            st.markdown(f"- {article}")
-
-        st.subheader("🧠 AI Summary")
-        st.write(summary)
+    st.subheader("Latest News")
+    news_items = fetch_news(symbol)
+    for article in news_items:
+        st.markdown(f"### [{article['title']}]({article['url']})")
+        st.write(article['description'])
