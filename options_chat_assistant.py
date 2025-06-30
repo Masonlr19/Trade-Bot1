@@ -275,4 +275,4 @@ if symbol:
     st.write(f"ML Model Accuracy on Test Set: {accuracy:.2f}")
 
     # Generate trade recommendation with all signals
-    signal = generate_trade_signal(df, sentiment_score, r
+    signal = generate_trade_signal(df, sentiment_score, r)
