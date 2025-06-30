@@ -132,6 +132,8 @@ def safe_fetch(fetch_func, *args, retries=3, **kwargs):
                 raise e
     raise RuntimeError("Max retries exceeded for Alpha Vantage call.")
 
+# ... rest of your unchanged code ...
+
 if symbol:
     with st.spinner("Fetching data..."):
         try:
@@ -145,6 +147,7 @@ if symbol:
         except Exception as e:
             st.error(f"Error fetching or analyzing data: {e}")
             st.stop()
+
 
 
 def fetch_options_data(symbol):
