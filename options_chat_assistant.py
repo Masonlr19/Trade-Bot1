@@ -47,19 +47,41 @@ def fetch_stock_data(symbol, outputsize="compact"):
     params = {
         "function": "TIME_SERIES_DAILY_ADJUSTED",
         "symbol": symbol,
-        "outputsize": outputsize,  # "compact" or "full"
-        "apikey": "3TQKXKTKBODO0AE0"
+        "outputsize": outputsize,
+        "apikey": ALPHAVANTAGE_API_KEY
     }
     response = requests.get(url, params=params)
     data = response.json()
-
+    
+    st.write("Raw API response:", data)  # <-- debug line, remove later
+    
     if "Error Message" in data:
         raise ValueError(f"Alpha Vantage API error: {data['Error Message']}")
+    if "Note" in data:
+        raise ValueError(f"Alpha Vantage API rate limit exceeded: {data['Note']}")
     if "Time Series (Daily)" not in data:
-        raise ValueError("Unexpected response from Alpha Vantage")
-
+        raise ValueError(f"Unexpected response keys: {list(data.keys())}")
+    
     ts = data["Time Series (Daily)"]
     df = pd.DataFrame.from_dict(ts, orient="index")
+    df = df.rename(columns={
+        "1. open": "Open",
+        "2. high": "High",
+        "3. low": "Low",
+        "4. close": "Close",
+        "5. adjusted close": "Adj Close",
+        "6. volume": "Volume",
+        "7. dividend amount": "Dividend",
+        "8. split coefficient": "Split Coef"
+    })
+    for col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+    df.index = pd.to_datetime(df.index)
+    df = df.sort_index()
+    required_cols = {"Open", "High", "Low", "Close", "Volume"}
+    df = df.dropna(subset=required_cols)
+    return df
+
 
     # Rename columns to standard names
     df = df.rename(columns={
