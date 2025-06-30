@@ -7,6 +7,7 @@ from newsapi import NewsApiClient
 import subprocess
 import sys
 import datetime
+import time
 
 # 1. Ensure textblob and nltk data are installed
 try:
@@ -50,7 +51,9 @@ def fetch_stock_data(symbol, outputsize="compact"):
     st.write("Raw API response:", data)
 
     if "Information" in data:
-        raise ValueError(f"Alpha Vantage API info message: {data['Information']}")
+        raise ValueError(
+            f"Alpha Vantage returned an informational message: {data['Information']} This typically means you've hit a rate limit or tried accessing a premium feature."
+        )
     if "Error Message" in data:
         raise ValueError(f"Alpha Vantage API error: {data['Error Message']}")
     if "Note" in data:
@@ -79,6 +82,7 @@ def fetch_stock_data(symbol, outputsize="compact"):
     return df
 
 def fetch_stock_data_weekly(symbol):
+    time.sleep(15)  # Prevent hitting the rate limit
     url = "https://www.alphavantage.co/query"
     params = {
         "function": "TIME_SERIES_WEEKLY_ADJUSTED",
@@ -89,7 +93,9 @@ def fetch_stock_data_weekly(symbol):
     data = response.json()
 
     if "Information" in data:
-        raise ValueError(f"Alpha Vantage API info message: {data['Information']}")
+        raise ValueError(
+            f"Alpha Vantage returned an informational message: {data['Information']} This typically means you've hit a rate limit or tried accessing a premium feature."
+        )
     if "Error Message" in data:
         raise ValueError(f"Alpha Vantage API error: {data['Error Message']}")
     if "Weekly Adjusted Time Series" not in data:
@@ -113,6 +119,33 @@ def fetch_stock_data_weekly(symbol):
     required_cols = {"Open", "High", "Low", "Close", "Volume"}
     df = df.dropna(subset=required_cols)
     return df
+
+def safe_fetch(fetch_func, *args, retries=3, **kwargs):
+    for attempt in range(retries):
+        try:
+            return fetch_func(*args, **kwargs)
+        except ValueError as e:
+            if "rate limit" in str(e).lower():
+                st.warning("Rate limit hit, waiting before retrying...")
+                time.sleep(20)
+            else:
+                raise e
+    raise RuntimeError("Max retries exceeded for Alpha Vantage call.")
+
+if symbol:
+    with st.spinner("Fetching data..."):
+        try:
+            df = safe_fetch(fetch_stock_data, symbol)
+            df_weekly = safe_fetch(fetch_stock_data_weekly, symbol)
+            df = analyze_data(df)
+            fundamentals = fetch_fundamentals(symbol)
+            options_data = fetch_options_data(symbol)
+            news_items = fetch_news(symbol)
+            sentiment_score = analyze_news_sentiment(news_items)
+        except Exception as e:
+            st.error(f"Error fetching or analyzing data: {e}")
+            st.stop()
+
 
 def fetch_options_data(symbol):
     return {
