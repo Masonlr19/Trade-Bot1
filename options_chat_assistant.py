@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import datetime
 import requests
+import time
 from transformers import pipeline
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LogisticRegression
@@ -27,9 +28,16 @@ def analyze_news_sentiment(news_titles):
     return results
 
 # ============ MARKET + OPTIONS DATA ============
-def get_stock_data(ticker, period="6mo", interval="1d"):
-    stock = yf.Ticker(ticker)
-    return stock.history(period=period, interval=interval)
+def get_stock_data(ticker, period="6mo", interval="1d", retries=3, delay=2):
+    for attempt in range(retries):
+        try:
+            stock = yf.Ticker(ticker)
+            return stock.history(period=period, interval=interval)
+        except Exception as e:
+            st.warning(f"Attempt {attempt+1} to fetch stock data failed: {e}")
+            time.sleep(delay)
+    st.error("Failed to retrieve stock data after multiple attempts.")
+    return pd.DataFrame()
 
 def get_news_titles(ticker):
     # Placeholder for real news API
@@ -39,14 +47,18 @@ def get_news_titles(ticker):
         f"{ticker} shows strong growth potential in AI sector"
     ]
 
-def get_options_data(ticker):
-    stock = yf.Ticker(ticker)
-    try:
-        expiry = stock.options[0]
-        options_chain = stock.option_chain(expiry)
-        return options_chain.calls[['strike', 'lastPrice', 'volume', 'impliedVolatility']].head()
-    except Exception as e:
-        return pd.DataFrame()
+def get_options_data(ticker, retries=3, delay=2):
+    for attempt in range(retries):
+        try:
+            stock = yf.Ticker(ticker)
+            expiry = stock.options[0]
+            options_chain = stock.option_chain(expiry)
+            return options_chain.calls[['strike', 'lastPrice', 'volume', 'impliedVolatility']].head()
+        except Exception as e:
+            st.warning(f"Attempt {attempt+1} to fetch options data failed: {e}")
+            time.sleep(delay)
+    st.error("Failed to retrieve options data after multiple attempts.")
+    return pd.DataFrame()
 
 # ============ BACKTESTING ============
 def backtest_strategy(prices):
