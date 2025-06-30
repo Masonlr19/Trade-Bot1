@@ -134,6 +134,11 @@ def safe_fetch(fetch_func, *args, retries=3, **kwargs):
 
 # ... rest of your unchanged code ...
 
+st.title("📊 Enhanced Options Chat Assistant with Alpha Vantage (Free Endpoints)")
+
+rsi_buy, rsi_sell, sentiment_buy, sentiment_sell = user_settings()
+symbol = st.text_input("Enter a stock symbol (e.g., AAPL):", value="AAPL")
+
 if symbol:
     with st.spinner("Fetching data..."):
         try:
@@ -147,6 +152,8 @@ if symbol:
         except Exception as e:
             st.error(f"Error fetching or analyzing data: {e}")
             st.stop()
+
+# ... remainder of your code remains unchanged ...
 
 
 
