@@ -9,6 +9,14 @@ import sys
 import datetime
 import time
 
+def user_settings():
+    st.sidebar.header("Customize Settings")
+    rsi_buy = st.sidebar.slider("RSI Buy Threshold", 10, 50, 30)
+    rsi_sell = st.sidebar.slider("RSI Sell Threshold", 50, 90, 70)
+    sentiment_buy = st.sidebar.slider("Sentiment Buy Threshold", 0.0, 1.0, 0.3)
+    sentiment_sell = st.sidebar.slider("Sentiment Sell Threshold", -1.0, 0.0, -0.3)
+    return rsi_buy, rsi_sell, sentiment_buy, sentiment_sell
+    
 # 1. Ensure textblob and nltk data are installed
 try:
     from textblob import TextBlob
