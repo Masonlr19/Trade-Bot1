@@ -4,4 +4,7 @@ plotly
 ta
 openai
 requests
+textblob
+nltk
 newsapi-python
+
