@@ -125,13 +125,22 @@ def analyze_data(df):
 
 def backtest_strategy(df):
     df = df.copy()
+    # Ensure critical columns exist and drop rows with NaNs in those columns
+    required_cols = ['momentum_rsi', 'Close']
+    for col in required_cols:
+        if col not in df.columns:
+            raise ValueError(f"Missing required column for backtest: {col}")
+    df = df.dropna(subset=required_cols)
+    
     df['Position'] = 0
     df.loc[df['momentum_rsi'] < 30, 'Position'] = 1
     df.loc[df['momentum_rsi'] > 70, 'Position'] = -1
+
     df['Market_Returns'] = df['Close'].pct_change()
     df['Strategy_Returns'] = df['Position'].shift(1) * df['Market_Returns']
     df['Cumulative_Strategy_Returns'] = (1 + df['Strategy_Returns']).cumprod()
     df['Cumulative_Market_Returns'] = (1 + df['Market_Returns']).cumprod()
+    
     return df
 
 def plot_backtest(df):
@@ -159,13 +168,29 @@ def user_settings():
 
 def prepare_ml_data(df):
     df = df.copy()
+
+    # Check Close exists
+    if 'Close' not in df.columns:
+        raise ValueError("Missing 'Close' column in dataframe for ML data prep.")
+
+    df = df.dropna(subset=['Close'])
+
+    # Create target column safely
     df['Target'] = 0
     df.loc[df['Close'].shift(-1) > df['Close'], 'Target'] = 1
     df.loc[df['Close'].shift(-1) < df['Close'], 'Target'] = -1
+
     features = ['momentum_rsi', 'trend_macd', 'volume_adi', 'volatility_bbm', 'volatility_bbh', 'volatility_bbl']
+    missing_features = [f for f in features if f not in df.columns]
+    if missing_features:
+        raise ValueError(f"Missing features for ML: {missing_features}")
+
+    # Drop rows with NaNs in features or Target
     df = df.dropna(subset=features + ['Target'])
+
     X = df[features]
     y = df['Target']
+
     return train_test_split(X, y, test_size=0.3, random_state=42)
 
 def train_ml_model(X_train, y_train):
