@@ -7,12 +7,8 @@ from newsapi import NewsApiClient
 import subprocess
 import sys
 import datetime
-import yfinance as yf
-import matplotlib.pyplot as plt
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
 
+# 1. Ensure textblob and nltk data are installed
 try:
     from textblob import TextBlob
 except ModuleNotFoundError:
@@ -22,7 +18,22 @@ except ModuleNotFoundError:
     nltk.download('brown')
     nltk.download('punkt')
 
-# Initialize API clients
+try:
+    import matplotlib.pyplot as plt
+except ModuleNotFoundError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "matplotlib"])
+    import matplotlib.pyplot as plt
+
+try:
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.model_selection import train_test_split
+    from sklearn.metrics import accuracy_score
+except ModuleNotFoundError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "scikit-learn"])
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.model_selection import train_test_split
+    from sklearn.metrics import accuracy_score
+
 newsapi = NewsApiClient(api_key='your_newsapi_key_here')
 ALPHAVANTAGE_API_KEY = "your_alpha_vantage_api_key_here"
 
@@ -36,19 +47,35 @@ def fetch_stock_data(symbol, outputsize="compact"):
     }
     response = requests.get(url, params=params)
     data = response.json()
+    st.write("Raw API response:", data)
+
+    if "Information" in data:
+        raise ValueError(f"Alpha Vantage API info message: {data['Information']}")
+    if "Error Message" in data:
+        raise ValueError(f"Alpha Vantage API error: {data['Error Message']}")
+    if "Note" in data:
+        raise ValueError(f"Alpha Vantage API rate limit exceeded: {data['Note']}")
     if "Time Series (Daily)" not in data:
         raise ValueError(f"Unexpected response keys: {list(data.keys())}")
+
     ts = data["Time Series (Daily)"]
     df = pd.DataFrame.from_dict(ts, orient="index")
     df = df.rename(columns={
-        "1. open": "Open", "2. high": "High", "3. low": "Low", "4. close": "Close",
-        "5. adjusted close": "Adj Close", "6. volume": "Volume"
+        "1. open": "Open",
+        "2. high": "High",
+        "3. low": "Low",
+        "4. close": "Close",
+        "5. adjusted close": "Adj Close",
+        "6. volume": "Volume",
+        "7. dividend amount": "Dividend",
+        "8. split coefficient": "Split Coef"
     })
     for col in df.columns:
         df[col] = pd.to_numeric(df[col], errors='coerce')
     df.index = pd.to_datetime(df.index)
     df = df.sort_index()
-    df = df.dropna(subset=["Open", "High", "Low", "Close", "Volume"])
+    required_cols = {"Open", "High", "Low", "Close", "Volume"}
+    df = df.dropna(subset=required_cols)
     return df
 
 def fetch_stock_data_weekly(symbol):
@@ -60,19 +87,31 @@ def fetch_stock_data_weekly(symbol):
     }
     response = requests.get(url, params=params)
     data = response.json()
+
+    if "Information" in data:
+        raise ValueError(f"Alpha Vantage API info message: {data['Information']}")
+    if "Error Message" in data:
+        raise ValueError(f"Alpha Vantage API error: {data['Error Message']}")
     if "Weekly Adjusted Time Series" not in data:
-        raise ValueError("Unexpected response from Alpha Vantage")
+        raise ValueError(f"Unexpected response keys: {list(data.keys())}")
+
     ts = data["Weekly Adjusted Time Series"]
     df = pd.DataFrame.from_dict(ts, orient="index")
     df = df.rename(columns={
-        "1. open": "Open", "2. high": "High", "3. low": "Low", "4. close": "Close",
-        "5. adjusted close": "Adj Close", "6. volume": "Volume"
+        "1. open": "Open",
+        "2. high": "High",
+        "3. low": "Low",
+        "4. close": "Close",
+        "5. adjusted close": "Adj Close",
+        "6. volume": "Volume",
+        "7. dividend amount": "Dividend"
     })
     for col in df.columns:
         df[col] = pd.to_numeric(df[col], errors='coerce')
     df.index = pd.to_datetime(df.index)
     df = df.sort_index()
-    df = df.dropna(subset=["Open", "High", "Low", "Close", "Volume"])
+    required_cols = {"Open", "High", "Low", "Close", "Volume"}
+    df = df.dropna(subset=required_cols)
     return df
 
 def fetch_options_data(symbol):
