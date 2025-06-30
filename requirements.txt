@@ -4,3 +4,4 @@ plotly
 ta
 openai
 requests
+newsapi-python
