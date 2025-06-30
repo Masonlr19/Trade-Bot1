@@ -167,34 +167,30 @@ def user_settings():
 
 def prepare_ml_data(df):
     df = df.copy()
-    # Check for required columns
     required_cols = ['Close', 'momentum_rsi', 'trend_macd', 'volume_adi', 'volatility_bbm', 'volatility_bbh', 'volatility_bbl']
     missing = [col for col in required_cols if col not in df.columns]
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
 
-    # Drop NaNs in features and Close first
-    df = df.dropna(subset=required_cols)
+    df = df.dropna(subset=required_cols).reset_index(drop=True)
 
-    # Create Target column by comparing next day's Close with current Close
+    # Create target variable
+    close = df['Close'].values
     target = []
-    close_values = df['Close'].values
-    for i in range(len(close_values) - 1):
-        if close_values[i+1] > close_values[i]:
+    for i in range(len(close) - 1):
+        if close[i + 1] > close[i]:
             target.append(1)
-        elif close_values[i+1] < close_values[i]:
+        elif close[i + 1] < close[i]:
             target.append(-1)
         else:
             target.append(0)
-    target.append(0)  # last day has no next day, assign 0 or drop later
+    target.append(0)  # for last row
 
-    df = df.iloc[:len(target)]  # make sure lengths match exactly
+    # Now assign target to df safely
+    df = df.iloc[:len(target)].copy()
     df['Target'] = target
 
-    # Drop any remaining NaNs just in case (should be none)
-    df = df.dropna(subset=required_cols + ['Target'])
-
-    X = df[required_cols[1:]]  # all features except Close
+    X = df[required_cols[1:]]  # exclude 'Close'
     y = df['Target']
 
     return train_test_split(X, y, test_size=0.3, random_state=42)
