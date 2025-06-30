@@ -1,11 +1,10 @@
 streamlit
-yfinance
 pandas
 numpy
-matplotlib
+requests
 scikit-learn
 transformers
 torch
-requests
+
 
 
