@@ -25,8 +25,12 @@ def fetch_stock_data(symbol, period="6mo", interval="1d"):
     df = yf.download(symbol, period=period, interval=interval)
     required_cols = {"Open", "High", "Low", "Close", "Volume"}
 
-    if not all(col in df.columns for col in required_cols):
-        raise ValueError(f"Missing required columns: {required_cols - set(df.columns)}")
+    missing_cols = required_cols - set(df.columns)
+    if missing_cols:
+        raise ValueError(f"Missing required columns: {missing_cols}")
+
+    # Debugging: Show columns
+    st.write(f"Columns in downloaded data: {list(df.columns)}")
 
     df = df.dropna(subset=required_cols)
     return df
@@ -91,8 +95,12 @@ symbol = st.text_input("Enter a stock symbol (e.g., AAPL):", value="AAPL")
 
 if symbol:
     with st.spinner("Fetching data..."):
-        df = fetch_stock_data(symbol)
-        df = analyze_data(df)
+        try:
+            df = fetch_stock_data(symbol)
+            df = analyze_data(df)
+        except Exception as e:
+            st.error(f"Error fetching or analyzing data: {e}")
+            st.stop()
 
     st.subheader("Technical Analysis Summary")
     st.write(df.tail(1).T)
