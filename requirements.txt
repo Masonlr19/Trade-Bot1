@@ -1,10 +1,11 @@
 streamlit
 yfinance
-plotly
+pandas
 ta
-openai
-requests
+newsapi-python
 textblob
 nltk
-newsapi-python
+matplotlib
+scikit-learn
+
 
