@@ -9,7 +9,30 @@ import os
 from transformers import pipeline
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
+# --- OpenAI ---
+import openai
 
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    st.warning("OpenAI API key not found. Set OPENAI_API_KEY to enable AI Q&A.")
+else:
+    openai.api_key = OPENAI_API_KEY
+
+def ask_openai(prompt):
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",  # Or "gpt-3.5-turbo"
+            messages=[
+                {"role": "system", "content": "You are a Wall Street-level financial advisor."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=300,
+            temperature=0.7,
+        )
+        return response['choices'][0]['message']['content']
+    except Exception as e:
+        return f"OpenAI error: {e}"
+        
 st.set_page_config(page_title="AI Financial Advisor", layout="wide")
 st.title("📊 AI Financial Advisor Bot")
 st.markdown("Combining market data, options analysis, LLMs, and backtesting.")
@@ -239,3 +262,18 @@ if st.button("Run Analysis"):
                 st.success("Analysis complete.")
             except Exception as e:
                 st.error(f"Error during analysis: {e}")
+
+# --- Ask the AI Assistant ---
+st.markdown("---")
+st.subheader("🧠 Ask the AI Financial Advisor")
+
+user_question = st.text_input("Enter any financial question or request an explanation:")
+if st.button("Get AI Answer"):
+    if not OPENAI_API_KEY:
+        st.error("OpenAI API key not configured.")
+    elif not user_question.strip():
+        st.warning("Please enter a question.")
+    else:
+        with st.spinner("Thinking..."):
+            ai_response = ask_openai(user_question)
+            st.markdown(f"**Answer:**\n\n{ai_response}")
