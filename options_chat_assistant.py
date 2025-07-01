@@ -6,6 +6,7 @@ import datetime
 import requests
 import time
 import os
+from openai import OpenAI
 from transformers import pipeline
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
