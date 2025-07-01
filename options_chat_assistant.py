@@ -149,7 +149,8 @@ if 'implied_volatility' in options_data.columns:
     
 if 'implied_volatility' not in options_data.columns:
     st.warning("Implied volatility data not available for this options chain.")
-    return df
+   
+return df
 
 # --- News Sentiment ---
 
