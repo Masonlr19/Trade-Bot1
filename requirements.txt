@@ -5,6 +5,6 @@ requests
 scikit-learn
 transformers
 torch
-
+openai
 
 
