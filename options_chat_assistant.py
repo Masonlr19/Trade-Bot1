@@ -21,8 +21,8 @@ else:
 
 def ask_openai(prompt):
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",  # Or "gpt-3.5-turbo"
+        response = client.chat.completions.create(
+            model="gpt-4",  # or "gpt-3.5-turbo"
             messages=[
                 {"role": "system", "content": "You are a Wall Street-level financial advisor."},
                 {"role": "user", "content": prompt}
@@ -30,9 +30,10 @@ def ask_openai(prompt):
             max_tokens=300,
             temperature=0.7,
         )
-        return response['choices'][0]['message']['content']
+        return response.choices[0].message.content
     except Exception as e:
         return f"OpenAI error: {e}"
+
         
 st.set_page_config(page_title="AI Financial Advisor", layout="wide")
 st.title("📊 AI Financial Advisor Bot")
