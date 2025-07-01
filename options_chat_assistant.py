@@ -12,6 +12,7 @@ from sklearn.preprocessing import StandardScaler
 # --- OpenAI ---
 import openai
 
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     st.warning("OpenAI API key not found. Set OPENAI_API_KEY to enable AI Q&A.")
 else:
