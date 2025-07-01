@@ -149,14 +149,6 @@ if 'implied_volatility' in options_data.columns:
     
 if 'implied_volatility' not in options_data.columns:
     st.warning("Implied volatility data not available for this options chain.")
-
-st.dataframe(options_data[columns_to_show])
-df = pd.DataFrame(options)
-    # Clean and convert columns to numeric
-    num_cols = ['strike', 'bid', 'ask', 'last', 'volume', 'open_interest', 'implied_volatility', 'delta', 'gamma', 'theta', 'vega']
-    for col in num_cols:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
     return df
 
 # --- News Sentiment ---
