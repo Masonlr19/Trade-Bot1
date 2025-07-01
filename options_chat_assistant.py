@@ -35,8 +35,6 @@ def ask_openai(prompt):
     except Exception as e:
         return f"OpenAI error: {e}"
 
-
-        
 st.set_page_config(page_title="AI Financial Advisor", layout="wide")
 st.title("📊 AI Financial Advisor Bot")
 st.markdown("Combining market data, options analysis, LLMs, and backtesting.")
@@ -88,7 +86,6 @@ def get_stock_history(symbol, period_days=180):
     df = pd.DataFrame(days)
     df['date'] = pd.to_datetime(df['date'])
     df.set_index('date', inplace=True)
-    # Convert columns to numeric
     for col in ['open', 'high', 'low', 'close', 'volume']:
         df[col] = pd.to_numeric(df[col], errors='coerce')
     return df
@@ -104,7 +101,6 @@ def get_stock_quote(symbol):
     data = retry_request(request)
     try:
         quote = data["quotes"]["quote"]
-        # If multiple quotes returned, take first
         if isinstance(quote, list):
             quote = quote[0]
         last_price = float(quote["last"])
@@ -114,7 +110,6 @@ def get_stock_quote(symbol):
 
 @st.cache_data(ttl=600)
 def get_options_chain(symbol, expiration=None):
-    # Step 1: Get expirations
     url_exp = "https://api.tradier.com/v1/markets/options/expirations"
     params_exp = {"symbol": symbol}
     def request_exp():
@@ -127,7 +122,6 @@ def get_options_chain(symbol, expiration=None):
         return pd.DataFrame()
     expiry = expiration or expirations[0]
 
-    # Step 2: Get option chains for that expiration
     url_chain = "https://api.tradier.com/v1/markets/options/chains"
     params_chain = {
         "symbol": symbol,
@@ -144,8 +138,6 @@ def get_options_chain(symbol, expiration=None):
         return pd.DataFrame()
 
     df = pd.DataFrame(options)
-
-    # Ensure numeric columns
     for col in ['strike', 'bid', 'ask', 'last', 'volume']:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
@@ -164,7 +156,6 @@ def analyze_news_sentiment(news_titles):
     return sentiment_pipeline(news_titles)
 
 def get_news_titles(ticker):
-    # Placeholder: Replace with real news API integration later
     return [
         f"{ticker} beats quarterly earnings expectations",
         f"{ticker} stock downgraded by analysts",
@@ -246,7 +237,15 @@ if st.button("Run Analysis"):
                 st.line_chart(stock_data['close'])
 
                 st.subheader("Options Chain")
-                st.dataframe(options_data[['strike', 'bid', 'ask', 'last', 'volume', 'implied_volatility']] if not options_data.empty else pd.DataFrame())
+                if not options_data.empty:
+                    columns_to_show = ['strike', 'bid', 'ask', 'last', 'volume']
+                    if 'implied_volatility' in options_data.columns:
+                        columns_to_show.append('implied_volatility')
+                    else:
+                        st.warning("⚠️ Implied volatility data not available for this options chain.")
+                    st.dataframe(options_data[columns_to_show])
+                else:
+                    st.warning("No options data available.")
 
                 st.subheader("🔍 Trade Recommendation")
                 st.markdown(f"**Recommendation:** {recommendation}")
