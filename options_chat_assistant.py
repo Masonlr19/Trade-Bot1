@@ -143,6 +143,14 @@ def get_options_chain(symbol, expiration=None):
     if not options:
         return pd.DataFrame()
 
+    columns_to_show = ['strike', 'bid', 'ask', 'last', 'volume']
+if 'implied_volatility' in options_data.columns:
+    columns_to_show.append('implied_volatility')
+    
+if 'implied_volatility' not in options_data.columns:
+    st.warning("Implied volatility data not available for this options chain.")
+
+st.dataframe(options_data[columns_to_show])
     df = pd.DataFrame(options)
     # Clean and convert columns to numeric
     num_cols = ['strike', 'bid', 'ask', 'last', 'volume', 'open_interest', 'implied_volatility', 'delta', 'gamma', 'theta', 'vega']
