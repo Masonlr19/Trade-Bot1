@@ -6,23 +6,25 @@ import datetime
 import requests
 import time
 import os
-from openai import OpenAI
 from transformers import pipeline
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 # --- OpenAI ---
 import openai
+from openai import OpenAI
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    st.warning("OpenAI API key not found. Set OPENAI_API_KEY to enable AI Q&A.")
-else:
-    openai.api_key = OPENAI_API_KEY
+
+OOPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+client = None
+if OPENAI_API_KEY:
+    client = OpenAI(api_key=OPENAI_API_KEY)
 
 def ask_openai(prompt):
+    if client is None:
+        return "OpenAI client is not initialized. Please set the OPENAI_API_KEY environment variable."
     try:
         response = client.chat.completions.create(
-            model="gpt-4",  # or "gpt-3.5-turbo"
+            model="gpt-4",
             messages=[
                 {"role": "system", "content": "You are a Wall Street-level financial advisor."},
                 {"role": "user", "content": prompt}
@@ -33,6 +35,7 @@ def ask_openai(prompt):
         return response.choices[0].message.content
     except Exception as e:
         return f"OpenAI error: {e}"
+
 
         
 st.set_page_config(page_title="AI Financial Advisor", layout="wide")
